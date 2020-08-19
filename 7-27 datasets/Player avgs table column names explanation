@@ -1,0 +1,36 @@
+Included this to explain the columns since I kinda organized and named them shittly lol
+
+If a variable has 'X' in it, that's just A-Sol/Sona/Nunu/Jinx depending on which player.
+
+Metric_name_og: the original code friendly variable name for each of the metrics from 'all role champs 7-27.csv'
+
+Metric: is Metric_name_og but made reader friendly for tables 2-5.
+
+With_X: overall averages for the player with all champs included. I originally was using this to compare to no_X, but I realized after I had made the tables on display 
+and written some analysis that that was a pepega on my part and I had to re-edit them all over again.
+
+X_only: metric averages for only games on their signature champ.
+
+no_x: averages for the players without their signature champ included.
+
+raw_dif: With_x - no_x. (unused)
+
+perc_dif: With_x / no_x. (unused)
+
+with_rnd: With_X but rounded to 4 decimals. (unused)
+
+without_rnd: no_x but rounded to 4 decimals.
+
+raw_dif_rnd: raw_dif but rounded to 4 decimals. (unused)
+
+ratio_rnd: perc_dif but rounded to 4 decimals. (unused)
+
+As_x_rnd: X_only but rounded to 4 decimals. (Turns out all these values were already rounded to under 4 decimals but i didnt realize till after rip.)
+
+raw_dif2: X_only - no_x
+
+raw_dif2: X_only / no_x
+
+raw_dif2_rnd: raw_dif2 but rounded to 4 decimals.
+
+perc_dif2_rn: raw_dif2 but rounded to 4 decimals.
