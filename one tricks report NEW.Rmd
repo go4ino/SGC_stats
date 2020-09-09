@@ -1,0 +1,997 @@
+---
+title: "<center> <h1>One Tricks Versus Meta Picks, An SGC Analysis</h1> </center>"
+subtitle: '<center> <h1>Is there a difference in performance between champions with relatively narrow playerbases versus those with broad ones?</h1> </center>'
+author: "Jack Go4ino"
+date: "8/26/2020"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+  pdf_document:
+    highlight: haddock
+    keep_tex: no
+    number_sections: no
+geometry: margin = 0.5in
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage{threeparttablex}
+- \usepackage[normalem]{ulem}
+- \usepackage{makecell}
+- \usepackage{xcolor}
+editor_options:
+  chunk_output_type: console
+documentclass: article
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+setwd("D:/School and work Stuff/Casting/SGC stats") #PC WORK DIRECTORY
+#setwd('C:/users/owner/documents/Casting/SGC stats') #laptop directory
+
+
+# libraries
+
+# basics
+library(MASS)
+library(broom)
+library(polynom)
+library(reshape2)
+library(lattice)
+library(latticeExtra)
+library(rattle)
+library(klaR)
+library(ISLR)
+library(olsrr)
+library(ellipsis)
+library(glue) #https://github.com/tidyverse/glue
+
+# knit / document styling
+library(knitr) 
+library(rsconnect) #deploying interactive shiny apps to shinyapps.io
+library(rticles) # for PDF doc styling knit
+library(radix) # for HTML doc title styling
+library(stargazer)
+library(pander)
+library(tables)
+library(kableExtra)
+library(htmlTable)
+library(xtable)
+library(gt) # https://blog.rstudio.com/2020/04/08/great-looking-tables-gt-0-2/
+library(tufte)
+library(shiny)
+library(bookdown)
+
+# input process packages
+library(utf8) #unicode text processing stuff
+library(xml2)
+library(rvest) #scraping data from websites
+library(readxl)
+library(readr) #rectangular data?
+library(png)
+library(openxlsx)
+library(lubridate)
+library(httr)
+
+# Tidyverse + ggplot graph stuff
+library(tidyverse) # ggplot themes https://ggplot2-book.org/polishing.html
+library(tidyselect)
+library(cowplot)
+library(gridExtra)
+library(GGally)
+library(ggpubr)
+library(scales)
+library(directlabels) #ez quick labels for ggplot http://directlabels.r-forge.r-project.org/
+library(ggthemes)
+library(ggsci)
+library(ggsignif)
+library(ggstance)
+library(plotly) #for pie chart and interactive graphs
+
+
+# linear regression / relation / correlation stuff
+library(e1071)
+library(outliers) #https://cran.r-project.org/web/packages/outliers/outliers.pdf
+
+# extra
+library(DescTools) #https://www.rdocumentation.org/packages/DescTools/versions/0.99.35 for roundTo
+library(dygraphs) # charting time series stuff http://www.htmlwidgets.org/showcase_dygraphs.html
+library(metricsgraphics) # ez pz html graphs https://hrbrmstr.github.io/metricsgraphics/ 
+library(gt)
+library(pastecs)
+library(htmltools)
+
+
+# hosting plotly graphs online:
+Sys.setenv("plotly_username"="go4ino")
+Sys.setenv("plotly_api_key"="hTZbFTSez8DNN1RU4P7O")
+# HOSTING on chart studio https://plotly.com/r/getting-started-with-chart-studio/
+
+
+# chunk ops
+
+knitr::opts_chunk$set(echo = FALSE,
+                      comment = NA, 
+                      message = FALSE, 
+                      warning = FALSE,
+                      fig.align = "center"
+                      )
+
+
+# https://holtzy.github.io/Pimp-my-rmd/#custom_caption
+# cool stuff^ ?
+
+# handy trouble shooting
+# https://stackoverflow.com/questions/24568056/rs-read-csv-prepending-1st-column-name-with-junk-text
+
+```
+
+
+```{r}
+# the data
+# 7-27 all roles champ stats
+all_role_champs <- read.csv('7-27 datasets/all role champs 7-27.csv')
+all_role_champs_10g_min <- read.csv('7-27 datasets/all role champs 10g min 7-27.csv')
+
+all_role_champs_10g_min$position <- factor(all_role_champs_10g_min$position, levels = c("Sup",
+                                                                  "ADC",
+                                                                  "Mid",
+                                                                  "Jung",
+                                                                  "Top"))
+
+
+all_role_champs$position <- factor(all_role_champs$position, levels = c("Sup",
+                                                                  "ADC",
+                                                                  "Mid",
+                                                                  "Jung",
+                                                                  "Top"))
+
+
+# super data
+raw_data <- read.csv('7-27 datasets/raw data entry 7-27.csv')
+
+raw_data$position <- factor(raw_data$position, levels = c("Sup",
+                                                                  "ADC",
+                                                                  "Mid",
+                                                                  "Jung",
+                                                                  "Top"))
+
+raw_data_double_4_norm_prob <- read.csv('7-27 datasets/raw data entry 7-27 with double data.csv')
+
+raw_data_double_4_norm_prob$position <- factor(raw_data_double_4_norm_prob$position, levels = c("Sup",
+                                                                  "ADC",
+                                                                  "Mid",
+                                                                  "Jung",
+                                                                  "Top",
+                                                                  "All"))
+
+raw_data_10g_min <- read.csv('7-27 datasets/raw data 10g min.csv')
+
+raw_data_10g_min$position <- factor(raw_data_10g_min$position, levels = c("Sup",
+                                                                  "ADC",
+                                                                  "Mid",
+                                                                  "Jung",
+                                                                  "Top"))
+
+
+# wr avgs
+
+apa_wr <- read.csv('7-27 datasets/APA wr avg new.csv')
+
+dean_wr <- read.csv('7-27 datasets/Dean wr avg new.csv')
+
+hunter_wr <- read.csv('7-27 datasets/Hunter wr avg new.csv')
+
+lobozz_wr <- read.csv('7-27 datasets/lobozz wr avg new.csv')
+
+all_4_wr <- read.csv('7-27 datasets/all 4 wr avg.csv')
+
+# KDA tbls
+
+kda_tbl <- read.csv('7-27 datasets/kda tbl all role.csv')
+
+kda_player <- read.csv('7-27 datasets/kda by player.csv')
+
+apa_kda <- read.csv('7-27 datasets/apa kda.csv')
+
+dean_kda <- read.csv('7-27 datasets/dean kda.csv')
+
+hunter_kda <- read.csv('7-27 datasets/Hunter kda.csv')
+
+lobozz_kda <- read.csv('7-27 datasets/Lobozz kda.csv')
+
+kda_narrow_player <- read.csv('7-27 datasets/narrow champ KDA.csv')
+
+```
+
+
+<!-- TO DO FINALIZE FIGURE / TABLE NUMBERS, also properly label sections-->
+<!-- add notes for report / data set-->
+
+<!--1.-->
+# Introduction
+
+Heya, Go4ino here again with another SGC data analytics report. The original inspiration for this report was RebelFox on twitter asking if I could investigate if differences in performances existed between different champions with different types of player bases. 
+
+For example: Is there a difference between Ornn and Sona? Ornn has been played extensively by practically every top laner in SGC, while Sona is more or less exclusively played by Dean. Does this mean Sona has higher average performance? Or is it overall better to stick primarily to the meta?
+
+
+Thankfully  @[pookarGG's](https://twitter.com/pookarGG) SGC data set exists and has concrete data to analyze. I did heavy data modification / rearranging / tinkering / etc to get the data sets I used in R-Studio.
+
+***
+
+# The Data
+
+As mentioned previously, the original source for this data was from Pookar's [SGC stats doc](https://docs.google.com/spreadsheets/d/1cQ_sHvyNP7VfSWfHgC4l0Dv8haPfyVRVAbm1Qy3krOs/edit#gid=1489742516). In specific this report pulled data from the `Champion By Player`, and `DATA` tab. I put all this data together into an Excel spreadsheet to read into R-Studio.
+
+Pookar's data takes match results data from almost every AM league up to 7/27, with only BIG League missing. Even with some matches being absent, there are 493 games present to analyze.
+
+The sheet is heavily automated, meaning every tab of interest is updated when match histories are entered. I chose the `Champion By Player` tab as it allowed me to separate champions by position more easily to distinguish flex picks, and I felt like lumping flex champs together would skew results (eg: Top, Jungle, and Support Sett have vastly different statistics). The `Data` tab was used for calculations for the entire sample population.
+
+
+
+
+
+***
+
+# Analyzing the Data
+
+
+## The Basics; Categorizing and Defining the 3 Types of Playerbase
+
+```{r, fig.align="center",  fig.cap="fig 1: Interactive dot-plot of player champ play rate vs win rate"}
+
+
+
+out <- ggplot(all_role_champs_10g_min, aes(x = pick_prop, y = Win_perc, color = position,
+                                           text = 
+                                           paste0('</br>', player,  " has played",
+                                                 '</br>', games, "/", games_total, " total games on ", Champion,
+                                                 '</br>', "With a ", win_perc_rnd, "% winrate"))) +
+  geom_point() +
+  labs(title = "Player Pick Porportion vs Win Rate",
+       subtitle = "Source: @PookarGG",
+       caption = "Data is as of 7-27. Only Champions with at least 10 games are displayed",
+       x = "Proportion of Picks For a Champion the Player Represents",
+       y = "Winrate") +
+  theme_solarized() +
+  scale_y_continuous(breaks=seq(0,1,0.1),
+                     labels = percent) +
+  scale_x_continuous(expand = expand_scale(mult = c(0, 0)),
+                     breaks=seq(0,1.05,0.1),
+                     labels = percent) +
+  coord_cartesian(xlim = c(0, 1.05)) +
+  geom_vline(xintercept = 0.2, color = 'black', linetype="dashed") + 
+  geom_vline(xintercept = 0.6, color = 'black', linetype="dashed")
+
+
+ggplotly(out,  tooltip = "text", align = "center") # doesnt center bruh
+
+```
+
+
+*note: only champions with at least 10 games played, and players with 10 games on a champ are shown.*
+
+To interact with the graph hover over the graph to display options, hover over data points to display critical information, and click on the positions in the legend to show/hide data points for a specific role.
+
+
+The vertical lines at 20% and 60% of total play rate is where I drew lines for separating the 3 factor groups. I decided on these 3 groupings based off what I perceived to be 3 distinct groups of data, and picked 20% and 60% since they would divide the 3 groups fairly well. Of course, these separations are by no means written in stone and just my personal interpretation which I based purely off of Proportion of Picks, and my eyeball's guessing power. Important to note is that due to the minimum game requirements this graph is naturally biased towards players who have played the most games. For example 100T FallenBandit moved to starting top during UPL playoffs and has only 8 games in the recorded data, meaning it is impossible for him to even be included anywhere on *fig 1*. Likewise, teams who play more games per set on average are more favored to have their players appear on the graph. Lets say Team X is extremely dominant, and 2-0s every opponent, but Team Y is less consistent and all their series go to game 3. This means that Team Y plays 50% more games than Team X despite playing the same number of Bo3 series, and inherently is biased in favor of Team Y.
+
+Points to the left are more widely played meta champs, whereas points to the right tend to have players who represent a significant portion of a given champ's playerbase. As such I have categorized the 3 playerbase groups as: `Broad`, `Medium`, and `Narrow`. You can think of `Broad` being meta champions, `Medium` being somewhat meta champions that certain players/teams may more heavily favor than others, and lastly `Narrow` is champions that are almost exclusively played by single players.
+
+As expected, the further along the x-axis you go the fewer data points there are. But are there any differences to be noted?
+
+
+### Looking For Differences and Trends Between Playerbase Types
+
+So we now have a concrete definition for the 3 primary types of playerbases. This means we can look at each of the 3 groups and try and discern any trends, differences, anomalies, etc.
+
+```{r test, fig.align="center",  fig.cap="table 1"}
+# table for avgs between playerbase types
+
+playerbase_cnt <- all_role_champs_10g_min %>%
+  count(Playerbase)
+
+bucket_avgs <- all_role_champs_10g_min %>%
+  group_by(Playerbase) %>%
+  summarise(n_distinct(champ_role)) # distinct champs col
+
+playerbase_cnt <- playerbase_cnt %>% 
+  right_join(bucket_avgs)
+
+bucket_avgs <- raw_data_10g_min %>%
+  group_by(Playerbase) %>%
+  summarise(mean(Win_Perc)) %>%
+  mutate(wr_rnd = round(.[[2]], digits = 4)) %>%
+  mutate(wr_rnd_perc = paste0(wr_rnd*100, "%")) %>%
+  select(1, 4) # avg wr col
+
+playerbase_cnt <- playerbase_cnt %>% 
+  right_join(bucket_avgs) 
+
+bucket_avgs <- all_role_champs_10g_min %>%
+  group_by(Playerbase) %>%
+  summarise(mean(games_total)) %>%
+  mutate(game_rnd = round(.[[2]], digits = 2)) %>%
+  select(1, 3) # avg games
+
+playerbase_cnt <- playerbase_cnt %>% 
+  right_join(bucket_avgs)
+
+colnames(playerbase_cnt) <- c("Playerbase", "N", "Distinct Champions", "Mean Win Rate", "Mean Champion Total Games")
+
+
+gt(playerbase_cnt) %>%
+  tab_header(title = md("Playerbase descriptive stats from *fig 1*"))
+#  tab_source_note(source_note = md('table 1'))
+
+
+
+```
+
+
+
+*table 1*
+
+
+The `Broad` category has astronomically more data points than the other 2 groups by a mile, however there is plenty of overlap with a relatively meager 23 distinct champions. For example: Aphelios appears 9 different times in the `Broad` category (click the legend to change which positions show on *fig 1* to make it easier to visualize). 
+On the flip side, `Medium` and `Narrow` both are entirely made up of unique champion picks. It should be noted that it is impossible for any duplicate champions in the same role to appear in `Narrow` due to the requirements. Furthermore, while it is possible for duplicates to appear in `Medium`, it's unlikely since all the champions in it are played somewhat widely and it just happens some teams / players value them higher. 
+As for `Narrow`'s champions, 3/4 of them were explicitly named as examples when the topic was brought up with Hunter's Nunu being a surprise point to me at least. This is one frontier where I absolutely hate the missing data from certain series / leagues / etc. because I'm sure there would be more points in `Narrow` I feel. 
+
+Now for win rates. I should preface this by saying to take this all with a grain of salt. As noted previously, the population sizes for `Medium` and `Narrow` are really small due to my limitations for games played. Even with those caveats I do still think it is worthwhile to examine the results to look for trends. 
+With that being said, there is no significant difference in win rate between `Broad` and `Medium` champions aside from a slight bump upwards. I personally expected there to be at least some more of a difference in win rate. All the `Medium` champions do have decent sized playerbases though and are seen enough most players are at least familiar with the matchups, so maybe familiarity is the reason for only a slight deviation? I'm not entirely sure as it could be a variety of factors, and this is something I feel maybe the players themselves might be able to give good insight into this. 
+Now for `Narrow` we see a **massive** jump to a win rate over **75%**. Everyone from pro-players to silver analysts on Reddit can tell you 75% win rate is *really high*, but I want to put this into perspective with numbers using the raw data from `raw data 10g min.csv`. 
+
+Because a match's result can only be win or lose, and the data's sample population is large ($n=66$) I will approximate the binomial distribution with the following normal distribution:
+
+$$
+p=0.5, n=66\\
+\mu=np=33\\
+\sigma = \sqrt{np(1-p)} \approx 4.062019
+$$
+
+Where $p$ is the population average win rate, $n$ is the sample size (aka the sum of games in `Narrow`), $\mu$ is our distribution's mean, and $\sigma$ is the distribution's standard deviation. Now we can run a single sample 1 sided hypothesis test to check how much of an outlier that win rate is. For overkill we will do the test at a 99% significance level, so there's only a 1% chance of a type-1 error.
+
+<center> $H_0$: The mean win rate for `Narrow` champions is the same as $\mu$ </center>
+
+<center> $H_1$: The mean win rate for `Narrow` champions is higher than $\mu$ </center>
+
+
+$$
+x=50, \alpha=0.01\\
+Z_0=\frac{x-\mu}{\sigma} \approx 4.185111 \\
+Pvalue=1-P(Z_0) \approx 1.425136e-05
+$$
+
+Because the P-value is lower than the chosen significance level $\alpha$, we can reject $H_0$ and very confidently claim that the champions in the `Narrow` category have significantly higher win rates. 
+
+Performing a full ass hypothesis test was kind of overkill ngl, but it does help illustrate my point that these picks bring in really poggers results. Keep in mind in most instances the champions in this category typically receive few changes (usually buffs) over entire seasons sometimes. This means that the potency of these picks remains the same over competitive splits, forcing enemy teams to either prepare for a pick that only really one person may play, or in most cases use up a ban. "Just use 1 ban no biggie" may be how some interpret this, but I want to paint a picture here to show this in action:
+
+So it's no secret that for the majority of the split, red side was forced to ban Varus in first ban phase every game. Now lets say your team is red side against SuperNova, you ban Varus of course, and then Always Plan Ahea's A-sol. But now you only have 1 ban left in first phase, meaning a strong pick you wanted to ban slips through and SuperNova grab that champion. And the cherry on top is that Always Plan Ahea just locks in Syndra and still performs well.
+
+<!--Of course this is a cherry picked example I made that heavily is biased towards my point, but it does paint the picture I'm trying to show.-->
+That may sound like hyperbole, but it was fairly common Always Plan Ahea said himself.
+
+> "It for sure made atleast the first half of pick/ban easier with them banning asol every game. It would make it so that we could draft around getting certain picks because we only know that they are working with at most 2 bans"
+> `r tufte::quote_footer('Always Plan Ahea')`
+
+A glance at the `Team Win/Loss % - Side` tab on Pookar's sheet shows that the average blue side win rate is 53.75%, but SuperNova has a significantly higher average blue side win rate at 72.41% and having the enemy usually use a ban on A-Sol may be partially why.
+
+Lastly, we have the average number of total games a champion has been played across all of SGC depending on which playerbase category the data point falls into. Unsurprisingly this number drops off heavily like in the column N. Turns out if you have 10-15 games on a champion but account for only 10% of the picks overall, then there's going to be a very high total game count for that champion! 
+For the `Narrow` category I do wish I had ban data to see what the overall (pick+ban)/total games ratio is for those points, which would make it easier to draw definitive conclusions. For Always Plan Ahea's A-Sol he was able to share with me that SuperNova would always pick A-Sol if it managed to get through bans, but I lack the critical information for the other 3. Like are these players picking these champions in `Narrow` whenever they can? Or do they save them for specific situations? 
+
+
+***
+
+## Does Playing Narrow Category Champions Have Any Effect On Performance Off of That Champion? {.tabset}
+
+This was a question that popped into my head for the 4 players in the `Narrow` category. While boasting high performance on those champions they're known for is great, can they still perform when not on said champions? Because if they struggle on different champions, well then said power picks could be a potential weakness for their teams rather than a strength.
+
+To analyze this question I decided to perform hypothesis testing to check the differences.
+
+
+Due to time limitations I've decided to only analyze the win rate as it is a fairly popular metric to judge one's performance. However, `Win rate` won't give us as complete of a picture in champion performance than if I were to include other metrics. For example: comparing gold/minute, or lane difference @ 10 minutes could help show how well the players can generate leads.
+
+<!---need to do a sample means comparisson between on the champ and off the champion?
+see stats 3005 formula sheets and tb---->
+<!-----stats 3005 finals formula sheet pg 3 stuff---->
+<!---might be ANOVA?: No lol--->
+<!---maybe also do them on their off champs vs overall average hypothesis test like back in last section?--->
+<!---can only do Dean with 2 sample because you need at least 10 success and 10 failure for each group--->
+
+My original plan was to compare the mean `Win rate` for each of the 4 players on and off their champions, using 2 sample hypothesis testing. However, in order to do that each player would need at least 10 wins, and 10 losses on their champions and at least 10 wins, and 10 losses off their signature champs. Sadly, only Dean meets this criteria. 
+Thus for the 4 players I will just be running a single sample hypothesis test to check if they still have a significantly better `Win rate` compared to the population 50% average, and just do a direct comparison of `Win rate` for each player. These single hypothesis tests will be done basically the same as the hypothesis test in 3.1.1, with just some numbers changed. 
+For all 4 of these tests we will be testing the following null and alternative hypotheses at a 95% confidence interval:
+
+
+
+
+$$
+H_0: \mu=x\\
+H_1: \mu < x
+$$
+
+Furthermore we already know that the population proportion is $p=0.5$, aka a 50% wr.
+
+
+Thankfully when all 4 players are combined we meet the requirements for a 2 sample hypothesis test. As such I will run a 2 sample hypothesis test there.
+
+
+
+### Always Plan Ahea
+
+
+```{r}
+
+apa_gt <- apa_wr %>%
+  select(2:5)
+
+colnames(apa_gt) <- c("Metric", "Total", "A-Sol", "Non A-Sol Champs")
+
+
+gt(apa_gt) %>%
+  tab_header(title = md("Always Plan Ahea Averages")) %>%
+  fmt_number(
+    columns = vars("Total", "A-Sol", "Non A-Sol Champs"),
+    decimals = 4
+  ) %>%
+  fmt_number(
+    columns = 2:4,
+    rows = 1:2,
+    decimals = 0
+  )
+```
+
+*table 2*
+
+
+$$
+n = 46\\
+\mu = np = 23\\
+\sigma =\sqrt{23*0.5(1-0.5)} \approx 3.3912  \\
+Z_0 = \frac{24-23}{\sigma} \approx 0.4170\\
+Pvalue = 1 - P(Z_0) \approx 0.3383 > 0.05 = \alpha
+$$
+
+We fail to reject $H_0$ because our P-value is greater than $\alpha$. Thus there is no significant statistical difference in `Win rate` between Always Plan Ahea when he's not on A-Sol and the overall average.
+
+<!----direct compare the win rates for on and off A-Sol--->
+
+
+
+
+***
+
+### Dean
+
+```{r}
+
+dean_gt <- dean_wr %>%
+  select(2:5)
+
+colnames(dean_gt) <- c("Metric", "Total", "Sona", "Non Sona Champs")
+
+
+gt(dean_gt) %>%
+  tab_header(title = md("Dean Averages")) %>%
+  fmt_number(
+    columns = vars("Total", "Sona", "Non Sona Champs"),
+    decimals = 4
+  ) %>%
+  fmt_number(
+    columns = 2:4,
+    rows = 1:2,
+    decimals = 0
+  )
+```
+
+*table 3*
+
+$$
+n = 33\\
+\mu = np = 16.5\\
+\sigma =\sqrt{16.5*0.5(1-0.5)} \approx 2.0310  \\
+Z_0 = \frac{17-16.5}{\sigma} \approx 0.2462\\
+Pvalue = 1 - P(Z_0) \approx 0.4028 > 0.05 = \alpha
+$$
+
+We fail to reject $H_0$ because our P-value is greater than $\alpha$. Thus there is no significant statistical difference in `Win rate` between Dean when he's not on Sona and the overall average.
+
+<!----direct compare the win rates for on and off--->
+
+***
+
+### Hunter
+
+```{r}
+
+hunter_gt <- hunter_wr %>%
+  select(2:5)
+
+colnames(hunter_gt) <- c("Metric", "Total", "Nunu", "Non Nunu Champs")
+
+
+gt(hunter_gt) %>%
+  tab_header(title = md("Hunter Averages")) %>%
+  fmt_number(
+    columns = vars("Total", "Nunu", "Non Nunu Champs"),
+    decimals = 4
+  ) %>%
+  fmt_number(
+    columns = 2:4,
+    rows = 1:2,
+    decimals = 0
+  )
+```
+
+*table 4*
+
+$$
+n = 60\\
+\mu = np = 30\\
+\sigma =\sqrt{30*0.5(1-0.5)} \approx 2.739  \\
+Z_0 = \frac{32-30}{\sigma} \approx 0.7303\\
+Pvalue = 1 - P(Z_0) \approx 0.2326 > 0.05 = \alpha
+$$
+
+We fail to reject $H_0$ because our P-value is greater than $\alpha$. Thus there is no significant statistical difference in `Win rate` between Hunter when he's not on Nunu and the overall average.
+
+<!----direct compare the win rates for on and off--->
+
+***
+
+### Lobozz
+
+```{r}
+
+lobozz_gt <- lobozz_wr %>%
+  select(2:5)
+
+colnames(lobozz_gt) <- c("Metric", "Total", "Jinx", "Non Jinx Champs")
+
+
+gt(lobozz_gt) %>%
+  tab_header(title = md("Lobozz Averages")) %>%
+  fmt_number(
+    columns = vars("Total", "Jinx", "Non Jinx Champs"),
+    decimals = 4
+  ) %>%
+  fmt_number(
+    columns = 2:4,
+    rows = 1:2,
+    decimals = 0
+  )
+```
+
+*table 5*
+
+$$
+n = 46\\
+\mu = np = 23\\
+\sigma =\sqrt{23*0.5(1-0.5)} \approx 3.3912  \\
+Z_0 = \frac{26-23}{\sigma} \approx 1.2511\\
+Pvalue = 1 - P(Z_0) \approx 0.1055 > 0.05 = \alpha
+$$
+
+We fail to reject $H_0$ because our P-value is greater than $\alpha$. Thus there is no significant statistical difference in `Win rate` between Lobozz when he's not on Jinx and the overall average.
+
+<!----direct compare the win rates for on and off--->
+
+***
+
+### All Four
+
+```{r}
+
+all_4_gt <- all_4_wr %>%
+  select(2:5)
+
+colnames(all_4_gt) <- c("Metric", "Total", "Signature Champ", "Non Signature Champs")
+
+
+gt(all_4_gt) %>%
+  tab_header(title = md("All Four Averages")) %>%
+  fmt_number(
+    columns = vars("Total", "Signature Champ", "Non Signature Champs"),
+    decimals = 4
+  ) %>%
+  fmt_number(
+    columns = 2:4,
+    rows = 1:2,
+    decimals = 0
+  )
+
+```
+
+
+*table 6*
+
+Now for the based 2 sample hypothesis test. This will tell us if there's any significant drop in `Win rate` when these players are not playing their signature champs. Ideally we want the players to be just as good off their signature champions, as they are on their signature champs.
+Thus in this instance we want to fail to reject $H_0$, as that would mean there is no significant difference in the means.
+
+
+
+
+Using the data from *table 6*, and a confidence level of 95% we get the following values and equations:
+
+<!----pg 349 of stats 3005 tb http://www.sthda.com/english/wiki/two-proportions-z-test-in-r--->
+
+$$
+\alpha = 0.05\\
+H_0:p_1=p_2\\
+H_1: p_1 > p_2\\
+p_1 = \frac{50}{66} \approx0.7576 \\
+p_2 = \frac{99}{184}\approx 0.5380  \\
+\hat{p}=\frac{149}{250} \approx 0.5960  \\
+Z_0 = \frac{p_1-p_2}{\sqrt{\hat{p} (1- \hat{p})(\frac{1}{66} + \frac{1}{184})}} \approx 3.1181
+$$
+
+Thus our resulting P-value is:
+
+$$
+1-P(Z_0) \approx 0.00148 < 0.05 = \alpha
+$$
+
+Because the P-value is lower than our $\alpha$ we **reject** $H_0$. Sadly this means that in general, these players perform significantly better when they are on their champs. I'm not significantly surprised though, since maintaining a close to 75% wr overall is giga hard to do.
+
+Given the results of 3.2.1.1-4, it appears as if 'just ban their champ lmao' is a good strat with low time investment since all 4 of these players aren't significantly better than the average player win rate wise off their champs.
+
+<!----see how winr ate comparissons go for prev sections on single players, and then remark if they still perform better than avg wr wise even off their champs in case by case basis---->
+
+
+***
+
+
+
+
+***
+
+
+# Conclusions
+
+So as we have seen these `Narrow` category champions are very high performers in terms of `Win rate` with that astonishing 75% wr. Of course it was shown that when these players are off their signature champions, they drop to basically the average `Win rate` which shows merit in the argument to ban said champs.
+
+But I guess that brings us to the big question of this paper: "Is there differences in performance between champions of different playerbase types?"
+
+To which I can confidently say yes. They have insane average win rates on those champions. It is a very massive difference, and the good kind at that.
+
+
+## Further Exploration
+
+Below is a list of things I wish I included in this report, and things one could do to further explore the data in the future. Basically all of them come down to perfect universe where I had more time, but SGC ended like 2 months ago and school started again so sadly I wanted to get this out before I died of work load.
+
+* For the classification of playerbase types maybe I could have used a classification system like LDA/QDA.
+* Examine more metrics than `Win rate`.
+* Get an interview with Lobozz, Dean, and/or Hunter for how their teams drafts around their champs.
+
+## Shoutouts
+
+* Rebel Fox for bringing this idea to me in the first place on [Twitter](https://twitter.com/The_Rebel_Fox/status/1286867270720004096?s=20). 
+* Pookar for managing to even get and compile all this data in the first place.
+* Always Plan Ahea for letting me interview him to get some crucial insight.
+
+
+
+
+***
+
+
+# Bibliography
+
+
+* Primary sources:
+  + [Pookar's SGC stats Google sheet](https://docs.google.com/spreadsheets/d/1cQ_sHvyNP7VfSWfHgC4l0Dv8haPfyVRVAbm1Qy3krOs/edit?usp=sharing)
+  + [My personal datasets](https://github.com/go4ino/SGC_stats)
+* Supplementary sources:
+  + [Always Plan Ahea interview](https://github.com/go4ino/SGC_stats/blob/master/always%20plan%20ahea%20interview)
+  + [Rebel Fox conversation logs for the pitch](https://github.com/go4ino/SGC_stats/blob/master/Rebel%20Fox%20idea%20pitch)
+
+## Sources notes:
+
+* Pookar's SGC stats Google sheet:
+  + Has records of SGC matches between the dates of 5/12/20-7/27/20, which was patches 10.9-10.15.
+  + It has the records for every player and team over 493 games. Which is 4930 raw data entries.
+  + Data does not include bans, only picks. This does mean some champs who were near perma ban status at certain points (eg: Varus, Yuumi) may have much lower presence despite being S+ tier champs for large parts of the season.
+  + It has data from Upsurge, Risen, LWL, Focus, and CUP.
+  + BIG League, and FACEIT playoffs matches were not included due to lack of match histories to enter.
+  + Lane Score stat is just XP and Gold earned at 10.
+  + Lane10 is the differential vs your lane opponent.
+  + Due to missing data from BIG and FACEIT, certain players and teams my be underrepresented. (EG: 100 Next only competed in 4/6 AM leagues, and with BIG gone potentially a quarter of their games are just not included.)
+* My personal datasets:
+  + All notes for Pookar's SGC stats Google sheet apply here too.
+  + Are modified versions of Pookar's `Champion By Player`, and `DATA` tabs in the CSV format so I can load them into R-Studio.   + They also have new variables added that weren't in the original dataset. Furthermore, most existing variables were renamed to be "code friendly".
+  + `all role champs 7-27.csv` is just a fusion of all 5 role's individual spreadsheets.
+  + `all role champs 10g min 7-27.csv` is a filtered version of `all role champs 7-27.csv` with only observations that meet the minimum criteria for a minimum of 10 games in total for a champion, and players who have played at least 10 games of said champion.
+  + `top/jung/mid/adc/sup champs 7-27.csv` are the spreadsheets for each individual position. All 5 combine into `all role champs 7-27.csv`.
+  + `APA/Dean/Hunter/Lobozz avgs table.csv` are just compiled averages for the metrics shown in tables 2-5.
+  + You are free to download and use my datasets for whatever, but be sure to credit both me (@go4ino) and Pookar (@PookarGG).
+  + `raw data entry 7-27.csv` is modified data from Pookar's `DATA` tab.
+  + `raw data entry 7-27 with double data.csv` is `raw data entry 7-27 with double data.csv` but with double the data for the purposes of having the all roles category and being able to put the 5 positions + the overall data results in the same graph.
+  
+  
+***
+
+# Appendix
+
+Some random supplementary stuff that isn't exactly relevant to the report.
+
+
+## *fig 1* With No Restrictions
+
+```{r}
+
+out <- ggplot(all_role_champs, aes(x = pick_prop, y = Win_perc, color = position,
+                                           text = 
+                                           paste0('</br>', player,  " has played",
+                                                 '</br>', games, "/", games_total, " total games on ", Champion,
+                                                 '</br>', "With a ", win_perc_rnd, "% winrate"))) +
+  geom_point() +
+  labs(title = "Player Pick Porportion vs Win Rate",
+       subtitle = "Source: @PookarGG",
+       x = "Proportion of Picks For a Champion the Player Represents",
+       y = "Winrate") +
+  theme_solarized() +
+  scale_y_continuous(breaks=seq(0,1,0.1),
+                     labels = percent) +
+  scale_x_continuous(expand = expand_scale(mult = c(0, 0)),
+                     breaks=seq(0,1.05,0.1),
+                     labels = percent) +
+  coord_cartesian(xlim = c(0, 1.05)) +
+  geom_vline(xintercept = 0.2, color = 'black', linetype="dashed") + 
+  geom_vline(xintercept = 0.6, color = 'black', linetype="dashed")
+
+
+ggplotly(out,  tooltip = "text")
+```
+
+*fig 2: Interactive dot-plot of player champ play rate vs win rate*
+
+
+
+## KDA Bar Graphs {.tabset}
+
+
+<!---need to do a sample means comparisson between on the champ and off the champion?
+see stats 3005 formula sheets and tb---->
+<!-----stats 3005 finals formula sheet pg 3 stuff---->
+<!----prolly slightly dif procedure than win rate since we dont know poulation variance/sd I think?--->
+
+<!--- do a side by side bar graph for kills, deaths and assists that'll be bitchin with plotly--->
+
+
+I had originally planned to also compare `KDA` alongside `Win rate` for the players with hypothesis testing. Sadly I have an acute case of being all dummy and no thicc and after doing a ton of data transforming and stuff realized I couldn't do a proper hypothesis test for `KDA` since there are always zero death cases and I can't plug infinity into the formulas. I didn't want all that work to go to waste though so I'm plopping the graphs and tables here in the appendix.
+I could have grouped the data by player to get non infinite values but I felt like that wouldn't be accurate enough for my tastes.
+
+
+### Always Plan Ahea
+
+
+```{r}
+
+apa_gt <- apa_kda %>%
+  select(1,6:9)
+
+colnames(apa_gt) <- c(" ", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(apa_gt) %>%
+  tab_header(title = md("Always Plan Ahea Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 7*
+
+
+```{r}
+# plotly barplot for KDA
+
+fig <- plot_ly(apa_kda, x = ~reorder(as, order), y = ~KDA, type = 'bar', 
+               color = ~Group, showlegend = FALSE, hoverinfo = 'text',
+        text = ~paste0('</br>', 'Average KDA: ', round(KDA, digits = 3))) %>%
+  layout(title = "Always Plan Ahea KDA Averages",
+         xaxis = list(title = ""))
+
+
+fig
+
+```
+
+*fig 3*
+
+
+
+***
+
+### Dean
+
+
+```{r}
+
+dean_gt <- dean_kda %>%
+  select(1,6:9)
+
+colnames(dean_gt) <- c(" ", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(dean_gt) %>%
+  tab_header(title = md("Dean Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 8*
+
+```{r}
+# plotly barplot for KDA
+
+fig <- plot_ly(dean_kda, x = ~reorder(as, order), y = ~KDA, type = 'bar', 
+               color = ~Group, showlegend = FALSE, hoverinfo = 'text',
+        text = ~paste0('</br>', 'Average KDA: ', round(KDA, digits = 3))) %>%
+  layout(title = "Dean KDA Averages",
+         xaxis = list(title = ""))
+
+
+fig
+
+```
+
+*fig 4*
+
+***
+
+
+
+### Hunter
+
+
+```{r}
+
+hunter_gt <- hunter_kda %>%
+  select(1,6:9)
+
+colnames(hunter_gt) <- c(" ", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(hunter_gt) %>%
+  tab_header(title = md("Hunter Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 9*
+
+```{r}
+# plotly barplot for KDA
+
+fig <- plot_ly(hunter_kda, x = ~reorder(as, order), y = ~KDA, type = 'bar', 
+               color = ~Group, showlegend = FALSE, hoverinfo = 'text',
+        text = ~paste0('</br>', 'Average KDA: ', round(KDA, digits = 3))) %>%
+  layout(title = "Hunter KDA Averages",
+         xaxis = list(title = ""))
+
+
+fig
+
+```
+
+*fig 5*
+
+***
+
+### Lobozz
+
+
+```{r}
+
+Lobozz_gt <- lobozz_kda %>%
+  select(1,6:9)
+
+colnames(Lobozz_gt) <- c(" ", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(Lobozz_gt) %>%
+  tab_header(title = md("Lobozz Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 10*
+
+```{r}
+# plotly barplot for KDA
+
+fig <- plot_ly(lobozz_kda, x = ~reorder(as, order), y = ~KDA, type = 'bar', 
+               color = ~Group, showlegend = FALSE, hoverinfo = 'text',
+        text = ~paste0('</br>', 'Average KDA: ', round(KDA, digits = 3))) %>%
+  layout(title = "Lobozz KDA Averages",
+         xaxis = list(title = ""))
+
+
+fig
+
+```
+
+*fig 6*
+
+***
+
+
+### All Four
+
+
+```{r}
+
+kda_gt <- kda_tbl %>%
+  select(1,5:8)
+
+colnames(kda_gt) <- c("Position", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(kda_gt) %>%
+  tab_header(title = md("Overall Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 11*
+
+```{r}
+# plotly barplot for KDA
+
+fig <- plot_ly(kda_narrow_player, x = ~reorder(as, order), y = ~KDA, type = 'bar', 
+               color = ~Group, showlegend = FALSE, hoverinfo = 'text',
+        text = ~paste0('</br>', 'Average KDA: ', round(KDA, digits = 3))) %>%
+  layout(title = "All Four KDA Averages",
+         xaxis = list(title = ""))
+
+
+fig
+
+```
+
+*fig 7*
+
+***
+
+## KDA Table For All Roles
+
+Basically the overall population average KDAs by role.
+
+
+```{r}
+
+kda_gt <- kda_tbl %>%
+  select(1,5:8)
+
+colnames(kda_gt) <- c("Position", "Kills", "Deaths", "Assists", "KDA")
+
+
+gt(kda_gt) %>%
+  tab_header(title = md("Overall Averages")) %>%
+  fmt_number(
+    columns = vars("Kills", "Deaths", "Assists", "KDA"),
+    decimals = 4
+  ) 
+```
+
+*table 12*
